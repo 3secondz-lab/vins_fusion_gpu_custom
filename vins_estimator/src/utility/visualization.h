@@ -39,6 +39,7 @@ extern ros::Publisher pub_pose_graph;
 extern int IMAGE_ROW, IMAGE_COL;
 
 void registerPub(ros::NodeHandle &n);
+void registerPub(ros::NodeHandle &n, int queue_size);
 
 void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, const Eigen::Vector3d &V, double t);
 

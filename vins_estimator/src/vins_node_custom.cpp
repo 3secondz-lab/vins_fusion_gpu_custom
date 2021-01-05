@@ -10,6 +10,14 @@
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
 
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <sensor_msgs/CompressedImage.h>
+
+using namespace sensor_msgs;
+using namespace message_filters;
+
 #define SYNC_TOLERANCE 0.02
 
 Estimator estimator;
@@ -18,130 +26,131 @@ queue<sensor_msgs::ImuConstPtr> imu_buf;
 queue<sensor_msgs::PointCloudConstPtr> feature_buf;
 queue<sensor_msgs::ImageConstPtr> img0_buf;
 queue<sensor_msgs::ImageConstPtr> img1_buf;
+queue<cv::Mat> img0_mat_buf;
+queue<cv::Mat> img1_mat_buf;
 std::mutex m_buf;
 
 
-void img0_callback(const sensor_msgs::ImageConstPtr &img_msg)
-{
-    m_buf.lock();
-    img0_buf.push(img_msg);
-    m_buf.unlock();
-}
+// void img0_callback(const sensor_msgs::ImageConstPtr &img_msg)
+// {
+//     m_buf.lock();
+//     img0_buf.push(img_msg);
+//     m_buf.unlock();
+// }
 
-void img1_callback(const sensor_msgs::ImageConstPtr &img_msg)
-{
-    m_buf.lock();
-    img1_buf.push(img_msg);
-    m_buf.unlock();
-}
+// void img1_callback(const sensor_msgs::ImageConstPtr &img_msg)
+// {
+//     m_buf.lock();
+//     img1_buf.push(img_msg);
+//     m_buf.unlock();
+// }
+
+// cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
+// {
+//     cv_bridge::CvImageConstPtr ptr;
+//     if (img_msg->encoding == "8UC1")
+//     {
+//         sensor_msgs::Image img;
+//         img.header = img_msg->header;
+//         img.height = img_msg->height;
+//         img.width = img_msg->width;
+//         img.is_bigendian = img_msg->is_bigendian;
+//         img.step = img_msg->step;
+//         img.data = img_msg->data;
+//         img.encoding = "mono8";
+//         ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
+//     }
+//     else
+//         ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
+
+//     cv::Mat img = ptr->image.clone();
+
+//     //cv2.rectangle(img, (384,0), (510,128), (0,255,0), 3)
+
+//     //cv::rectangle(img,cv::Rect((0,0), (1280,300)),cv::Color(0,0,0))
+//     //cv::rectangle(img, cv::Point(0, 0), cv::Point(1280, 600), cv::Scalar(0,0,0), -1);
+
+//     //cv::rectangle(img, cv::Point(0, 700), cv::Point(1280, 1024), cv::Scalar(0,0,0), -1);
+
+//     //img = img.rowRange(450,749);
+
+//     return img;
+// }
+
+// // extract images with same timestamp from two topics
+// void sync_process()
+// {
+//     while(1)
+//     {
+//         if(STEREO)
+//         {
+//             cv::Mat image0, image1;
+//             std_msgs::Header header;
+//             double time = 0;
+//             m_buf.lock();
+//             if (!img0_buf.empty() && !img1_buf.empty())
+//             {
+//                 double time0 = img0_buf.front()->header.stamp.toSec();
+//                 double time1 = img1_buf.front()->header.stamp.toSec();
+//                 // sync tolerance
+//                 if(time0 < time1 - SYNC_TOLERANCE)
+//                 {
+//                     img0_buf.pop();
+//                     printf("throw img0\n");
+//                 }
+//                 else if(time0 > time1 + SYNC_TOLERANCE)
+//                 {
+//                     img1_buf.pop();
+//                     printf("throw img1\n");
+//                 }
+//                 else
+//                 {
+//                     time = img0_buf.front()->header.stamp.toSec();
+//                     header = img0_buf.front()->header;
+//                     image0 = getImageFromMsg(img0_buf.front());
+//                     img0_buf.pop();
+//                     image1 = getImageFromMsg(img1_buf.front());
+//                     img1_buf.pop();
+//                     //printf("find img0 and img1\n");
 
 
-cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
-{
-    cv_bridge::CvImageConstPtr ptr;
-    if (img_msg->encoding == "8UC1")
-    {
-        sensor_msgs::Image img;
-        img.header = img_msg->header;
-        img.height = img_msg->height;
-        img.width = img_msg->width;
-        img.is_bigendian = img_msg->is_bigendian;
-        img.step = img_msg->step;
-        img.data = img_msg->data;
-        img.encoding = "mono8";
-        ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
-    }
-    else
-        ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
-
-    cv::Mat img = ptr->image.clone();
-
-    //cv2.rectangle(img, (384,0), (510,128), (0,255,0), 3)
-
-    //cv::rectangle(img,cv::Rect((0,0), (1280,300)),cv::Color(0,0,0))
-    //cv::rectangle(img, cv::Point(0, 0), cv::Point(1280, 600), cv::Scalar(0,0,0), -1);
-
-    //cv::rectangle(img, cv::Point(0, 700), cv::Point(1280, 1024), cv::Scalar(0,0,0), -1);
-
-    //img = img.rowRange(450,749);
-
-    return img;
-}
-
-// extract images with same timestamp from two topics
-void sync_process()
-{
-    while(1)
-    {
-        if(STEREO)
-        {
-            cv::Mat image0, image1;
-            std_msgs::Header header;
-            double time = 0;
-            m_buf.lock();
-            if (!img0_buf.empty() && !img1_buf.empty())
-            {
-                double time0 = img0_buf.front()->header.stamp.toSec();
-                double time1 = img1_buf.front()->header.stamp.toSec();
-                // sync tolerance
-                if(time0 < time1 - SYNC_TOLERANCE)
-                {
-                    img0_buf.pop();
-                    printf("throw img0\n");
-                }
-                else if(time0 > time1 + SYNC_TOLERANCE)
-                {
-                    img1_buf.pop();
-                    printf("throw img1\n");
-                }
-                else
-                {
-                    time = img0_buf.front()->header.stamp.toSec();
-                    header = img0_buf.front()->header;
-                    image0 = getImageFromMsg(img0_buf.front());
-                    img0_buf.pop();
-                    image1 = getImageFromMsg(img1_buf.front());
-                    img1_buf.pop();
-                    //printf("find img0 and img1\n");
-
-
-                    cv::Rect bounds(0,0,image0.cols,image0.rows);
-                    cv::Rect r(0,400,1280,256); // partly outside 
-                    image0 = image0( r & bounds ); // cropped to fit image
-                    image1 = image1( r & bounds ); // cropped to fit image
+//                     cv::Rect bounds(0,0,image0.cols,image0.rows);
+//                     cv::Rect r(0,400,1280,256); // partly outside 
+//                     image0 = image0( r & bounds ); // cropped to fit image
+//                     image1 = image1( r & bounds ); // cropped to fit image
                     
-                }
-            }
-            m_buf.unlock();
-            if(!image0.empty())
-                estimator.inputImage(time, image0, image1);
-        }
-        else
-        {
-            cv::Mat image;
-            std_msgs::Header header;
-            double time = 0;
-            m_buf.lock();
-            if(!img0_buf.empty())
-            {
-                time = img0_buf.front()->header.stamp.toSec();
-                header = img0_buf.front()->header;
-                image = getImageFromMsg(img0_buf.front());
-                img0_buf.pop();
+//                 }
+//             }
+//             m_buf.unlock();
+//             if(!image0.empty())
+//                 estimator.inputImage(time, image0, image1);
+//         }
+//         else
+//         {
+//             cv::Mat image;
+//             std_msgs::Header header;
+//             double time = 0;
+//             m_buf.lock();
+//             if(!img0_buf.empty())
+//             {
+//                 time = img0_buf.front()->header.stamp.toSec();
+//                 header = img0_buf.front()->header;
+//                 image = getImageFromMsg(img0_buf.front());
+//                 img0_buf.pop();
 
-                cv::Rect bounds(0,0,image.cols,image.rows);
-                cv::Rect r(0,400,1280,256); // partly outside 
-                image = image( r & bounds ); // cropped to fit image
-            }
-            m_buf.unlock();
-            if(!image.empty())
-                estimator.inputImage(time, image);
-        }
+//                 cv::Rect bounds(0,0,image.cols,image.rows);
+//                 cv::Rect r(0,400,1280,256); // partly outside 
+//                 image = image( r & bounds ); // cropped to fit image
+//             }
+//             m_buf.unlock();
+//             if(!image.empty())
+//                 estimator.inputImage(time, image);
+//         }
 
-        std::chrono::milliseconds dura(2);
-        std::this_thread::sleep_for(dura);
-    }
-}
+//         std::chrono::milliseconds dura(2);
+//         std::this_thread::sleep_for(dura);
+//     }
+// }
 
 
 void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
@@ -157,6 +166,39 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
     Vector3d gyr(rx, ry, rz);
     estimator.inputIMU(t, acc, gyr);
     return;
+}
+
+
+void img_callback(const sensor_msgs::CompressedImageConstPtr &msg_img0, 
+                  const sensor_msgs::CompressedImageConstPtr &msg_img1){
+    ros::Duration t = msg_img0->header.stamp - msg_img1->header.stamp;
+    double t_diff = abs(t.toSec());
+    if(t_diff > SYNC_TOLERANCE){
+        ROS_WARN_STREAM("Image time difference : " << t_diff);
+    }else{
+        ROS_DEBUG_STREAM("Image time difference : " << t_diff);
+    }
+
+    // Convert compressed msg to Mat
+    cv::Mat img0 = cv::imdecode(cv::Mat(msg_img0->data), cv::IMREAD_GRAYSCALE);
+    cv::Mat img1 = cv::imdecode(cv::Mat(msg_img1->data), cv::IMREAD_GRAYSCALE);
+
+    // Crop images
+    int h0 = img0.size().height;
+    int w0 = img0.size().width;
+
+    int h1 = img1.size().height;
+    int w1 = img1.size().width;
+
+    assert(h0 == h1);
+    assert(w0 == w1);
+
+    cv::Mat img0_crop = img0.rowRange(CROP_TOP, h0 - CROP_BOTTOM).clone();
+    cv::Mat img1_crop = img1.rowRange(CROP_TOP, h1 - CROP_BOTTOM).clone();
+
+    double t0 = msg_img0->header.stamp.toSec();
+
+    estimator.inputImage(t0, img0_crop, img1_crop);
 }
 
 
@@ -215,8 +257,11 @@ int main(int argc, char **argv)
     ros::NodeHandle n("~");
 
     bool flag_debug = false;
+    int queue_size = 1;
 
     n.param("debug", flag_debug, false);
+    n.param("queue_size", queue_size, 1);
+    
     if(flag_debug){
         ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
         ROS_DEBUG_STREAM("Debug flag : true");
@@ -224,6 +269,8 @@ int main(int argc, char **argv)
         ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
         ROS_INFO_STREAM("Debug flag : false");
     }
+
+    ROS_INFO_STREAM("queue_size : " << queue_size);
 
     if(argc != 2)
     {
@@ -245,14 +292,24 @@ int main(int argc, char **argv)
 
     ROS_WARN("waiting for image and imu...");
 
-    registerPub(n);
+    registerPub(n, queue_size);
 
-    ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 2000, imu_callback, ros::TransportHints().tcpNoDelay());
-    ros::Subscriber sub_feature = n.subscribe("/feature_tracker/feature", 2000, feature_callback);
-    ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 1, img0_callback);
-    ros::Subscriber sub_img1 = n.subscribe(IMAGE1_TOPIC, 1, img1_callback);
+    ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 1, imu_callback, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_feature = n.subscribe("/feature_tracker/feature", 1, feature_callback);
 
-    std::thread sync_thread{sync_process};
+    // Synched image subscriber
+    message_filters::Subscriber<CompressedImage> sub_img0(n, IMAGE0_TOPIC, queue_size);
+    message_filters::Subscriber<CompressedImage> sub_img1(n, IMAGE1_TOPIC, queue_size);
+
+    typedef sync_policies::ApproximateTime<CompressedImage, CompressedImage> ImgSyncPolicy;
+
+    Synchronizer<ImgSyncPolicy> sync(ImgSyncPolicy(3), sub_img0, sub_img1);
+    sync.registerCallback(boost::bind(&img_callback, _1, _2));
+
+    // ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 1, img0_callback);
+    // ros::Subscriber sub_img1 = n.subscribe(IMAGE1_TOPIC, 1, img1_callback);
+    // std::thread sync_thread{sync_process};
+
     ros::spin();
 
     return 0;

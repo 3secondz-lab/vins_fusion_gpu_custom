@@ -31,7 +31,12 @@ void Estimator::setParameter()
     {
         tic[i] = TIC[i];
         ric[i] = RIC[i];
-        cout << " exitrinsic cam " << i << endl  << ric[i] << endl << tic[i].transpose() << endl;
+
+        ROS_INFO_STREAM("Extrinsic cam" << i << " :");
+        ROS_INFO_STREAM("R : " << endl << ric[i]);
+        ROS_INFO_STREAM("T : " << endl << tic[i].transpose());
+
+        // cout << " exitrinsic cam " << i << endl  << ric[i] << endl << tic[i].transpose() << endl;
     }
     f_manager.setRic(ric);
     ProjectionTwoFrameOneCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
@@ -39,8 +44,12 @@ void Estimator::setParameter()
     ProjectionOneFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     td = TD;
     g = G;
-    cout << "set g " << g.transpose() << endl;
+    ROS_INFO_STREAM("set g : " << g.transpose());
     featureTracker.readIntrinsicParameter(CAM_NAMES);
+
+    for (int i = 0; i < NUM_OF_CAM; i++){
+        ROS_INFO_STREAM("cam" << i << " intrinsics : " << featureTracker.m_camera[i]->parametersToString());
+    }
 
     std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
     if (MULTIPLE_THREAD)
@@ -934,6 +943,9 @@ bool Estimator::failureDetection()
 
 void Estimator::optimization()
 {
+
+    int cnt_param = 0;
+
     TicToc t_whole, t_prepare;
     vector2double();
 
@@ -946,9 +958,12 @@ void Estimator::optimization()
     for (int i = 0; i < frame_count + 1; i++)
     {
         ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
+        ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Pose[i]);
         problem.AddParameterBlock(para_Pose[i], SIZE_POSE, local_parameterization);
-        if(USE_IMU)
+        if(USE_IMU){
+            ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_SpeedBias[i]);
             problem.AddParameterBlock(para_SpeedBias[i], SIZE_SPEEDBIAS);
+        }
     }
     if(!USE_IMU)
         problem.SetParameterBlockConstant(para_Pose[0]);
@@ -956,6 +971,7 @@ void Estimator::optimization()
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
         ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
+        ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Ex_Pose[i]);
         problem.AddParameterBlock(para_Ex_Pose[i], SIZE_POSE, local_parameterization);
         if ((ESTIMATE_EXTRINSIC && frame_count == WINDOW_SIZE && Vs[0].norm() > 0.2) || openExEstimation)
         {
@@ -968,6 +984,7 @@ void Estimator::optimization()
             problem.SetParameterBlockConstant(para_Ex_Pose[i]);
         }
     }
+    ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Td[0]);
     problem.AddParameterBlock(para_Td[0], 1);
 
     if (!ESTIMATE_TD || Vs[0].norm() < 0.2)

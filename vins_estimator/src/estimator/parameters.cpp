@@ -264,7 +264,7 @@ void readParameters(std::string config_file)
     std::string cam0Path = configPath + "/" + cam0Calib;
     std::string cam0PathModified = configPath + "/cam0_modified.yaml";
 
-    ROS_INFO_STREAM("\nAdjust cam0 intrinsic parameters...\n");
+    ROS_INFO_STREAM("Adjust cam0 intrinsic parameters...");
     if(!modifyIntrinsicParams(cam0Path, cam0PathModified, ROW, CROP_TOP, CROP_BOTTOM)){
         ROS_ERROR_STREAM("Failed to adjust cam0 parameters.");
         return;
@@ -280,7 +280,7 @@ void readParameters(std::string config_file)
         std::string cam1PathModified = configPath + "/cam1_modified.yaml";
         //printf("%s cam1 path\n", cam1Path.c_str() );
 
-        ROS_INFO_STREAM("\nAdjust cam1 intrinsic parameters...\n");
+        ROS_INFO_STREAM("Adjust cam1 intrinsic parameters...");
         if(!modifyIntrinsicParams(cam1Path, cam1PathModified, ROW, CROP_TOP, CROP_BOTTOM)){
             ROS_ERROR_STREAM("Failed to adjust cam1 parameters.");
             return;
