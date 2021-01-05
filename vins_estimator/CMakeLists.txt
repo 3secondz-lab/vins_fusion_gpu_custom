@@ -68,3 +68,6 @@ target_link_libraries(kitti_odom_test vins_lib)
 add_executable(kitti_gps_test src/KITTIGPSTest.cpp)
 target_link_libraries(kitti_gps_test vins_lib) 
 
+# Custom node
+add_executable(vins_node_custom src/vins_node_custom.cpp)
+target_link_libraries(vins_node_custom vins_lib)

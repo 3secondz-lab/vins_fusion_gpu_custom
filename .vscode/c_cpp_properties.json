@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/vins_estimator/src/**",
+                "/home/ys/ros_catkin_ws/install/include",
+                "/usr/include/eigen3"
+            ],
+            "defines": [],
+            "compilerPath": "/home/ys/anaconda3/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+}

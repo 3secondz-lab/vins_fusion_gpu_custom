@@ -69,6 +69,9 @@ extern double F_THRESHOLD;
 extern int SHOW_TRACK;
 extern int FLOW_BACK;
 
+extern int CROP_TOP;
+extern int CROP_BOTTOM;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION

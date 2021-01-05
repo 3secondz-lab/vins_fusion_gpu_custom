@@ -51,6 +51,89 @@ double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
 
+// Crop parameters
+int CROP_TOP = 0;
+int CROP_BOTTOM = 0;
+
+// Intrinsic modification helper
+bool modifyIntrinsicParams(std::string path_in, std::string path_out, int image_height_orig, int crop_top, int crop_bottom){
+    // Adjust intrinsic parameters with crop parameters
+    cv::FileStorage fs(path_in, cv::FileStorage::READ);
+    if(!fs.isOpened())
+    {
+        std::cerr << "ERROR: Wrong path to cam0 parameters : " << path_in << std::endl;
+        return false;
+    }
+
+    // Read original parameters
+    std::string model_type = fs["model_type"];
+    std::string camera_name = fs["camera_name"];
+    int image_width = fs["image_width"];
+    int image_height = fs["image_height"];
+
+    double k1 = fs["distortion_parameters"]["k1"];
+    double k2 = fs["distortion_parameters"]["k2"];
+    double p1 = fs["distortion_parameters"]["p1"];
+    double p2 = fs["distortion_parameters"]["p2"];
+
+    double fx = fs["projection_parameters"]["fx"];
+    double fy = fs["projection_parameters"]["fy"];
+    double cx = fs["projection_parameters"]["cx"];
+    double cy = fs["projection_parameters"]["cy"];
+
+    fs.release();
+
+    ROS_INFO_STREAM("Original parameters :");
+    ROS_INFO_STREAM("[width, height] : [" << image_width << ", " << image_height << "]");
+    ROS_INFO_STREAM("[k1, k2, p1, p2] : [" << k1 << ", " << k2 << ", " << p1 << ", " << p2 << "]");
+    ROS_INFO_STREAM("[fx, fy, cx, cy] : [" << fx << ", " << fy << ", " << cx << ", " << cy << "]");
+
+    // Apply crop
+    cy = cy - (double)crop_top;
+
+    image_height = image_height - crop_top - crop_bottom;
+
+    if(image_height_orig != image_height){
+        ROS_ERROR_STREAM("Inconsistent image height : " << image_height_orig << " and " << image_height);
+        return false;
+    };
+
+    // Save adjusted parameters
+    cv::FileStorage fs_out(path_out, cv::FileStorage::WRITE);
+    if(!fs_out.isOpened())
+    {
+        std::cerr << "ERROR: Failed to open : " << path_out << std::endl;
+        return false;
+    };
+
+    fs_out << "model_type" << model_type;
+    fs_out << "camera_name" << camera_name;
+
+    fs_out << "image_width" << image_width;
+    fs_out << "image_height" << image_height;
+
+    fs_out << "distortion_parameters";
+    fs_out << "{" << "k1" << k1;
+    fs_out << "k2" << k2;
+    fs_out << "p1" << p1;
+    fs_out << "p2" << p2 << "}";
+
+    fs_out << "projection_parameters";
+    fs_out << "{" << "fx" << fx;
+    fs_out << "fy" << fy;
+    fs_out << "cx" << cx;
+    fs_out << "cy" << cy << "}";
+
+    fs_out.release();
+
+    ROS_INFO_STREAM("Modified parameters :");
+    ROS_INFO_STREAM("[width, height] : [" << image_width << ", " << image_height << "]");
+    ROS_INFO_STREAM("[k1, k2, p1, p2] : [" << k1 << ", " << k2 << ", " << p1 << ", " << p2 << "]");
+    ROS_INFO_STREAM("[fx, fy, cx, cy] : [" << fx << ", " << fy << ", " << cx << ", " << cy << "]");
+
+    return true;
+}
+
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -156,6 +239,22 @@ void readParameters(std::string config_file)
         assert(0);
     }
 
+    // Crop parameters
+    CROP_TOP = fsSettings["crop_top"];
+    CROP_BOTTOM = fsSettings["crop_bottom"];
+
+    ROW = fsSettings["image_height"];
+    COL = fsSettings["image_width"];
+
+    ROW = ROW - CROP_TOP - CROP_BOTTOM;
+
+    if(ROW <= 0){
+        ROS_ERROR_STREAM("Invalid image height after crop : " << ROW << endl
+                         << ", CROP : [" << CROP_TOP << ", " << CROP_BOTTOM << "]");
+        return;
+    }
+
+    ROS_INFO("ROW: %d COL: %d ", ROW, COL);
 
     int pn = config_file.find_last_of('/');
     std::string configPath = config_file.substr(0, pn);
@@ -163,7 +262,14 @@ void readParameters(std::string config_file)
     std::string cam0Calib;
     fsSettings["cam0_calib"] >> cam0Calib;
     std::string cam0Path = configPath + "/" + cam0Calib;
-    CAM_NAMES.push_back(cam0Path);
+    std::string cam0PathModified = configPath + "/cam0_modified.yaml";
+
+    ROS_INFO_STREAM("\nAdjust cam0 intrinsic parameters...\n");
+    if(!modifyIntrinsicParams(cam0Path, cam0PathModified, ROW, CROP_TOP, CROP_BOTTOM)){
+        ROS_ERROR_STREAM("Failed to adjust cam0 parameters.");
+        return;
+    }
+    CAM_NAMES.push_back(cam0PathModified);
 
     if(NUM_OF_CAM == 2)
     {
@@ -171,8 +277,15 @@ void readParameters(std::string config_file)
         std::string cam1Calib;
         fsSettings["cam1_calib"] >> cam1Calib;
         std::string cam1Path = configPath + "/" + cam1Calib; 
+        std::string cam1PathModified = configPath + "/cam1_modified.yaml";
         //printf("%s cam1 path\n", cam1Path.c_str() );
-        CAM_NAMES.push_back(cam1Path);
+
+        ROS_INFO_STREAM("\nAdjust cam1 intrinsic parameters...\n");
+        if(!modifyIntrinsicParams(cam1Path, cam1PathModified, ROW, CROP_TOP, CROP_BOTTOM)){
+            ROS_ERROR_STREAM("Failed to adjust cam1 parameters.");
+            return;
+        }
+        CAM_NAMES.push_back(cam1PathModified);
         
         cv::Mat cv_T;
         fsSettings["body_T_cam1"] >> cv_T;
@@ -193,10 +306,6 @@ void readParameters(std::string config_file)
         ROS_INFO_STREAM("Unsynchronized sensors, online estimate time offset, initial td: " << TD);
     else
         ROS_INFO_STREAM("Synchronized sensors, fix time offset: " << TD);
-
-    ROW = fsSettings["image_height"];
-    COL = fsSettings["image_width"];
-    ROS_INFO("ROW: %d COL: %d ", ROW, COL);
 
     if(!USE_IMU)
     {
