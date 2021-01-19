@@ -81,6 +81,7 @@ public:
     map<int, cv::Point2f> cur_un_right_pts_map, prev_un_right_pts_map;
     map<int, cv::Point2f> prevLeftPtsMap;
     vector<camodocal::CameraPtr> m_camera;
+    // vector<camodocal::PinholeCameraPtr> m_camera;
     double cur_time;
     double prev_time;
     bool stereo_cam;

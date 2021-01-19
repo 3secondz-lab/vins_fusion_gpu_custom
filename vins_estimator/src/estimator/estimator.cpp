@@ -136,15 +136,20 @@ bool Estimator::getIMUInterval(double t0, double t1, vector<pair<double, Eigen::
             accBuf.pop();
             gyrBuf.pop();
         }
-        while (accBuf.front().first < t1)
+        while (accBuf.front().first <= t1)
         {
             accVector.push_back(accBuf.front());
             accBuf.pop();
             gyrVector.push_back(gyrBuf.front());
             gyrBuf.pop();
         }
-        accVector.push_back(accBuf.front());
-        gyrVector.push_back(gyrBuf.front());
+
+        if(accVector.size() == 0){
+            return false;
+        }
+
+        // accVector.push_back(accBuf.front());
+        // gyrVector.push_back(gyrBuf.front());
     }
     else
     {

@@ -128,41 +128,44 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             TicToc t_o;
             
             vector<float> err;
-            if(hasPrediction)
-            {
-                cur_pts = predict_pts;
-                cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 1, 
-                cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01), cv::OPTFLOW_USE_INITIAL_FLOW);
+            // if(hasPrediction)
+            // {
+            //     cur_pts = predict_pts;
+            //     // cv::calcOpticalFlowPyrLK(
+            //     //     prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 1,
+            //     //     cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01),
+            //     //     cv::OPTFLOW_USE_INITIAL_FLOW
+            //     // );
                 
-                int succ_num = 0;
-                for (size_t i = 0; i < status.size(); i++)
-                {
-                    if (status[i])
-                        succ_num++;
-                }
-                if (succ_num < 10)
+            //     // int succ_num = 0;
+            //     // for (size_t i = 0; i < status.size(); i++)
+            //     // {
+            //     //     if (status[i])
+            //     //         succ_num++;
+            //     // }
+            //     // if (succ_num < 10)
+            //     cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 3);
+            // }
+            // else
                 cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 3);
-            }
-            else
-                cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 3);
-            // reverse check
-            if(FLOW_BACK)
-            {
-                vector<uchar> reverse_status;
-                vector<cv::Point2f> reverse_pts = prev_pts;
-                cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 1, 
-                cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01), cv::OPTFLOW_USE_INITIAL_FLOW);
-                //cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 3); 
-                for(size_t i = 0; i < status.size(); i++)
-                {
-                    if(status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
-                    {
-                        status[i] = 1;
-                    }
-                    else
-                        status[i] = 0;
-                }
-            }
+            // // reverse check
+            // if(FLOW_BACK)
+            // {
+            //     vector<uchar> reverse_status;
+            //     vector<cv::Point2f> reverse_pts = prev_pts;
+            //     cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 1, 
+            //     cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01), cv::OPTFLOW_USE_INITIAL_FLOW);
+            //     //cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 3); 
+            //     for(size_t i = 0; i < status.size(); i++)
+            //     {
+            //         if(status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
+            //         {
+            //             status[i] = 1;
+            //         }
+            //         else
+            //             status[i] = 0;
+            //     }
+            // }
             // printf("temporal optical flow costs: %fms\n", t_o.toc());
         }
         else
@@ -173,44 +176,44 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             cv::cuda::GpuMat prev_gpu_pts(prev_pts);
             cv::cuda::GpuMat cur_gpu_pts(cur_pts);
             cv::cuda::GpuMat gpu_status;
-            if(hasPrediction)
-            {
-                cur_gpu_pts = cv::cuda::GpuMat(predict_pts);
-                cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
-                cv::Size(21, 21), 1, 30, true);
-                d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
+            // if(hasPrediction)
+            // {
+            //     cur_gpu_pts = cv::cuda::GpuMat(predict_pts);
+            //     // cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
+            //     // cv::Size(21, 21), 1, 30, true);
+            //     // d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
                 
-                vector<cv::Point2f> tmp_cur_pts(cur_gpu_pts.cols);
-                cur_gpu_pts.download(tmp_cur_pts);
-                cur_pts = tmp_cur_pts;
+            //     // vector<cv::Point2f> tmp_cur_pts(cur_gpu_pts.cols);
+            //     // cur_gpu_pts.download(tmp_cur_pts);
+            //     // cur_pts = tmp_cur_pts;
 
-                vector<uchar> tmp_status(gpu_status.cols);
-                gpu_status.download(tmp_status);
-                status = tmp_status;
+            //     // vector<uchar> tmp_status(gpu_status.cols);
+            //     // gpu_status.download(tmp_status);
+            //     // status = tmp_status;
 
-                int succ_num = 0;
-                for (size_t i = 0; i < tmp_status.size(); i++)
-                {
-                    if (tmp_status[i])
-                        succ_num++;
-                }
-                if (succ_num < 10)
-                {
-                    cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
-                    cv::Size(21, 21), 3, 30, false);
-                    d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
+            //     // int succ_num = 0;
+            //     // for (size_t i = 0; i < tmp_status.size(); i++)
+            //     // {
+            //     //     if (tmp_status[i])
+            //     //         succ_num++;
+            //     // }
+            //     // if (succ_num < 10)
+            //     // {
+            //         cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
+            //         cv::Size(21, 21), 3, 30, false);
+            //         d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
 
-                    vector<cv::Point2f> tmp1_cur_pts(cur_gpu_pts.cols);
-                    cur_gpu_pts.download(tmp1_cur_pts);
-                    cur_pts = tmp1_cur_pts;
+            //         vector<cv::Point2f> tmp1_cur_pts(cur_gpu_pts.cols);
+            //         cur_gpu_pts.download(tmp1_cur_pts);
+            //         cur_pts = tmp1_cur_pts;
 
-                    vector<uchar> tmp1_status(gpu_status.cols);
-                    gpu_status.download(tmp1_status);
-                    status = tmp1_status;
-                }
-            }
-            else
-            {
+            //         vector<uchar> tmp1_status(gpu_status.cols);
+            //         gpu_status.download(tmp1_status);
+            //         status = tmp1_status;
+            //     // }
+            // }
+            // else
+            // {
                 cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
                 cv::Size(21, 21), 3, 30, false);
                 d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
@@ -222,31 +225,31 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                 vector<uchar> tmp1_status(gpu_status.cols);
                 gpu_status.download(tmp1_status);
                 status = tmp1_status;
-            }
-            if(FLOW_BACK)
-            {
-                cv::cuda::GpuMat reverse_gpu_status;
-                cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
-                cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
-                cv::Size(21, 21), 1, 30, true);
-                d_pyrLK_sparse->calc(cur_gpu_img, prev_gpu_img, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status);
+            // }
+            // if(FLOW_BACK)
+            // {
+            //     cv::cuda::GpuMat reverse_gpu_status;
+            //     cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
+            //     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
+            //     cv::Size(21, 21), 1, 30, true);
+            //     d_pyrLK_sparse->calc(cur_gpu_img, prev_gpu_img, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status);
 
-                vector<cv::Point2f> reverse_pts(reverse_gpu_pts.cols);
-                reverse_gpu_pts.download(reverse_pts);
+            //     vector<cv::Point2f> reverse_pts(reverse_gpu_pts.cols);
+            //     reverse_gpu_pts.download(reverse_pts);
 
-                vector<uchar> reverse_status(reverse_gpu_status.cols);
-                reverse_gpu_status.download(reverse_status);
+            //     vector<uchar> reverse_status(reverse_gpu_status.cols);
+            //     reverse_gpu_status.download(reverse_status);
 
-                for(size_t i = 0; i < status.size(); i++)
-                {
-                    if(status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
-                    {
-                        status[i] = 1;
-                    }
-                    else
-                        status[i] = 0;
-                }
-            }
+            //     for(size_t i = 0; i < status.size(); i++)
+            //     {
+            //         if(status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
+            //         {
+            //             status[i] = 1;
+            //         }
+            //         else
+            //             status[i] = 0;
+            //     }
+            // }
             // printf("gpu temporal optical flow costs: %f ms\n",t_og.toc());
         }
     
@@ -267,7 +270,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
 
     if (1)
     {
-        //rejectWithF();
+        rejectWithF();
         ROS_DEBUG("set mask begins");
         TicToc t_m;
         setMask();
@@ -357,17 +360,17 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                 // cur left ---- cur right
                 cv::calcOpticalFlowPyrLK(cur_img, rightImg, cur_pts, cur_right_pts, status, err, cv::Size(21, 21), 3);
                 // reverse check cur right ---- cur left
-                if(FLOW_BACK)
-                {
-                    cv::calcOpticalFlowPyrLK(rightImg, cur_img, cur_right_pts, reverseLeftPts, statusRightLeft, err, cv::Size(21, 21), 3);
-                    for(size_t i = 0; i < status.size(); i++)
-                    {
-                        if(status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) && distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
-                            status[i] = 1;
-                        else
-                            status[i] = 0;
-                    }
-                }
+                // if(FLOW_BACK)
+                // {
+                //     cv::calcOpticalFlowPyrLK(rightImg, cur_img, cur_right_pts, reverseLeftPts, statusRightLeft, err, cv::Size(21, 21), 3);
+                //     for(size_t i = 0; i < status.size(); i++)
+                //     {
+                //         if(status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) && distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
+                //             status[i] = 1;
+                //         else
+                //             status[i] = 0;
+                //     }
+                // }
                 // printf("left right optical flow cost %fms\n",t_check.toc());
             }
             else
@@ -390,43 +393,80 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                 gpu_status.download(tmp_status);
                 status = tmp_status;
 
-                if(FLOW_BACK)
-                {   
-                    cv::cuda::GpuMat reverseLeft_gpu_Pts;
-                    cv::cuda::GpuMat status_gpu_RightLeft;
-                    cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
-                    cv::Size(21, 21), 3, 30, false);
-                    d_pyrLK_sparse->calc(right_gpu_Img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
+                // if(FLOW_BACK)
+                // {   
+                //     cv::cuda::GpuMat reverseLeft_gpu_Pts;
+                //     cv::cuda::GpuMat status_gpu_RightLeft;
+                //     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
+                //     cv::Size(21, 21), 3, 30, false);
+                //     d_pyrLK_sparse->calc(right_gpu_Img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
 
-                    vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
-                    reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
-                    reverseLeftPts = tmp_reverseLeft_Pts;
+                //     vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
+                //     reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
+                //     reverseLeftPts = tmp_reverseLeft_Pts;
 
-                    vector<uchar> tmp1_status(status_gpu_RightLeft.cols);
-                    status_gpu_RightLeft.download(tmp1_status);
-                    statusRightLeft = tmp1_status;
-                    for(size_t i = 0; i < status.size(); i++)
-                    {
-                        if(status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) && distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
-                            status[i] = 1;
-                        else
-                            status[i] = 0;
-                    }
-                }
+                //     vector<uchar> tmp1_status(status_gpu_RightLeft.cols);
+                //     status_gpu_RightLeft.download(tmp1_status);
+                //     statusRightLeft = tmp1_status;
+                //     for(size_t i = 0; i < status.size(); i++)
+                //     {
+                //         if(status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) && distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
+                //             status[i] = 1;
+                //         else
+                //             status[i] = 0;
+                //     }
+                // }
                 // printf("gpu left right optical flow cost %fms\n",t_og1.toc());
             }
             ids_right = ids;
+            cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
+
+            std::vector<double> paramVec0, paramVec1;
+            m_camera[0]->writeParameters(paramVec0);
+            m_camera[1]->writeParameters(paramVec1);
+
+            int num_stereo_mismatch = 0;
+
+            for(unsigned int idx_pts = 0; idx_pts < cur_un_pts.size(); idx_pts++){
+                float x_l = ((float)paramVec0[4])*cur_un_pts[idx_pts].x + ((float)paramVec0[6]);
+                float y_l = ((float)paramVec0[5])*cur_un_pts[idx_pts].y + ((float)paramVec0[7]);
+
+                float x_r = ((float)paramVec1[4])*cur_un_right_pts[idx_pts].x + ((float)paramVec1[6]);
+                float y_r = ((float)paramVec1[5])*cur_un_right_pts[idx_pts].y + ((float)paramVec1[7]);
+
+                float y_diff = abs(y_l - y_r);
+
+                if(y_diff > 5.0){
+                    ROS_DEBUG_STREAM("Pts " << idx_pts << " : [" 
+                        << x_l << ", " << y_l << " / ["
+                        << x_r << ", " << y_r << "]"
+                    );
+                    // ROS_DEBUG_STREAM("Mismatch found");
+
+                    status[idx_pts] = 0;
+                    num_stereo_mismatch++;
+                }
+            }
+            ROS_DEBUG_STREAM("Features removed from stereo consistency : " << num_stereo_mismatch);
+
             reduceVector(cur_right_pts, status);
+            reduceVector(cur_un_right_pts, status);
             reduceVector(ids_right, status);
             // only keep left-right pts
-            /*
             reduceVector(cur_pts, status);
             reduceVector(ids, status);
             reduceVector(track_cnt, status);
             reduceVector(cur_un_pts, status);
             reduceVector(pts_velocity, status);
-            */
-            cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
+
+
+            // Check stereo consistency
+            ROS_DEBUG_STREAM("Pts num : Left " << cur_pts.size() << ", Right " << cur_right_pts.size());
+
+            // for(int idx_pts = 0; idx_pts < cur_pts.size(); idx_pts++){
+
+            // }
+
             right_pts_velocity = ptsVelocity(ids_right, cur_un_right_pts, cur_un_right_pts_map, prev_un_right_pts_map);
             
         }
@@ -534,6 +574,7 @@ void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file)
     {
         ROS_INFO("reading paramerter of camera %s", calib_file[i].c_str());
         camodocal::CameraPtr camera = CameraFactory::instance()->generateCameraFromYamlFile(calib_file[i]);
+        std::cout << camera->modelType() << std::endl;
         m_camera.push_back(camera);
     }
     if (calib_file.size() == 2)
