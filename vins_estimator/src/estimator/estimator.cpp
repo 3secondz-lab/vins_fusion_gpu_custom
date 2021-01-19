@@ -949,7 +949,7 @@ bool Estimator::failureDetection()
 void Estimator::optimization()
 {
 
-    int cnt_param = 0;
+    // int cnt_param = 0;
 
     TicToc t_whole, t_prepare;
     vector2double();
@@ -963,10 +963,10 @@ void Estimator::optimization()
     for (int i = 0; i < frame_count + 1; i++)
     {
         ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
-        ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Pose[i]);
+        // ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Pose[i]);
         problem.AddParameterBlock(para_Pose[i], SIZE_POSE, local_parameterization);
         if(USE_IMU){
-            ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_SpeedBias[i]);
+            // ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_SpeedBias[i]);
             problem.AddParameterBlock(para_SpeedBias[i], SIZE_SPEEDBIAS);
         }
     }
@@ -976,7 +976,7 @@ void Estimator::optimization()
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
         ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
-        ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Ex_Pose[i]);
+        // ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Ex_Pose[i]);
         problem.AddParameterBlock(para_Ex_Pose[i], SIZE_POSE, local_parameterization);
         if ((ESTIMATE_EXTRINSIC && frame_count == WINDOW_SIZE && Vs[0].norm() > 0.2) || openExEstimation)
         {
@@ -989,7 +989,7 @@ void Estimator::optimization()
             problem.SetParameterBlockConstant(para_Ex_Pose[i]);
         }
     }
-    ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Td[0]);
+    // ROS_DEBUG_STREAM("Param" << cnt_param++ << " : " << para_Td[0]);
     problem.AddParameterBlock(para_Td[0], 1);
 
     if (!ESTIMATE_TD || Vs[0].norm() < 0.2)
@@ -1014,53 +1014,57 @@ void Estimator::optimization()
         }
     }
 
-    int f_m_cnt = 0;
-    int feature_index = -1;
-    for (auto &it_per_id : f_manager.feature)
-    {
-        it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4)
-            continue;
- 
-        ++feature_index;
-
-        int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
-        
-        Vector3d pts_i = it_per_id.feature_per_frame[0].point;
-
-        for (auto &it_per_frame : it_per_id.feature_per_frame)
+    if(USE_IMU){
+        int f_m_cnt = 0;
+        int feature_index = -1;
+        for (auto &it_per_id : f_manager.feature)
         {
-            imu_j++;
-            if (imu_i != imu_j)
-            {
-                Vector3d pts_j = it_per_frame.point;
-                ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
-                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
-            }
+            it_per_id.used_num = it_per_id.feature_per_frame.size();
+            if (it_per_id.used_num < 4)
+                continue;
+    
+            ++feature_index;
 
-            if(STEREO && it_per_frame.is_stereo)
-            {                
-                Vector3d pts_j_right = it_per_frame.pointRight;
-                if(imu_i != imu_j)
+            int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+            
+            Vector3d pts_i = it_per_id.feature_per_frame[0].point;
+
+            for (auto &it_per_frame : it_per_id.feature_per_frame)
+            {
+                imu_j++;
+                if (imu_i != imu_j)
                 {
-                    ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
-                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                    problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                    Vector3d pts_j = it_per_frame.point;
+                    ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
+                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                    problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
                 }
-                else
-                {
-                    ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
-                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                    problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+
+                if(STEREO && it_per_frame.is_stereo)
+                {                
+                    Vector3d pts_j_right = it_per_frame.pointRight;
+                    if(imu_i != imu_j)
+                    {
+                        ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
+                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                        problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                    }
+                    else
+                    {
+                        ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
+                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                        problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                    }
+                
                 }
-               
+                f_m_cnt++;
             }
-            f_m_cnt++;
         }
+
+        ROS_DEBUG("visual measurement count: %d", f_m_cnt);
     }
 
-    ROS_DEBUG("visual measurement count: %d", f_m_cnt);
+    
     //printf("prepare for ceres: %f \n", t_prepare.toc());
 
     ceres::Solver::Options options;
@@ -1124,6 +1128,7 @@ void Estimator::optimization()
             }
         }
 
+        if(USE_IMU)
         {
             int feature_index = -1;
             for (auto &it_per_id : f_manager.feature)

@@ -253,9 +253,12 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             // printf("gpu temporal optical flow costs: %f ms\n",t_og.toc());
         }
     
-        for (int i = 0; i < int(cur_pts.size()); i++)
-            if (status[i] && !inBorder(cur_pts[i]))
+        for (int i = 0; i < int(cur_pts.size()); i++){
+            if (status[i] && !inBorder(cur_pts[i])){
                 status[i] = 0;
+            }
+        }
+            
         reduceVector(prev_pts, status);
         reduceVector(cur_pts, status);
         reduceVector(ids, status);
@@ -434,13 +437,14 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                 float x_r = ((float)paramVec1[4])*cur_un_right_pts[idx_pts].x + ((float)paramVec1[6]);
                 float y_r = ((float)paramVec1[5])*cur_un_right_pts[idx_pts].y + ((float)paramVec1[7]);
 
+                float x_diff = abs(x_l - x_r);
                 float y_diff = abs(y_l - y_r);
 
-                if(y_diff > 5.0){
-                    ROS_DEBUG_STREAM("Pts " << idx_pts << " : [" 
-                        << x_l << ", " << y_l << " / ["
-                        << x_r << ", " << y_r << "]"
-                    );
+                if(y_diff > 5.0 || x_diff < 0.5){
+                    // ROS_DEBUG_STREAM("Pts " << idx_pts << " : [" 
+                    //     << x_l << ", " << y_l << " / ["
+                    //     << x_r << ", " << y_r << "]"
+                    // );
                     // ROS_DEBUG_STREAM("Mismatch found");
 
                     status[idx_pts] = 0;
@@ -458,7 +462,6 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             reduceVector(track_cnt, status);
             reduceVector(cur_un_pts, status);
             reduceVector(pts_velocity, status);
-
 
             // Check stereo consistency
             ROS_DEBUG_STREAM("Pts num : Left " << cur_pts.size() << ", Right " << cur_right_pts.size());
@@ -696,8 +699,8 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
             cv::Point2f rightPt = curRightPts[i];
             rightPt.x += cols;
             cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
-            //cv::Point2f leftPt = curLeftPtsTrackRight[i];
-            //cv::line(imTrack, leftPt, rightPt, cv::Scalar(0, 255, 0), 1, 8, 0);
+            // cv::Point2f leftPt = curLeftPts[i];
+            // cv::line(imTrack, leftPt, rightPt, cv::Scalar(0, 255, 0), 1, 8, 0);
         }
     }
     
